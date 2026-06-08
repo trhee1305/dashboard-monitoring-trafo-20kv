@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONITRAFO-20KV - Control Center</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a 60%);
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .glow-amber {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+        }
+        .glow-rose {
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.15);
+        }
+        /* Transisi halus pergerakan jarum dan fill gauge */
+        .gauge-pointer {
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-origin: 50px 50px;
+        }
+        .gauge-path {
+            transition: stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- LOGIN SCREEN (Hanya tampil jika belum login) -->
+    <div id="login-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md transition-all duration-500">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.15),transparent_60%)]"></div>
+        
+        <div class="glass-panel w-full max-w-md rounded-3xl p-8 shadow-2xl relative z-10 border border-slate-700/40">
+            <!-- Header Login -->
+            <div class="text-center space-y-3">
+                <div class="inline-flex bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 p-4 rounded-2xl shadow-xl shadow-amber-500/20 mb-1">
+                    <i class="fa-solid fa-shield-halved text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-extrabold tracking-tight text-white">MONITORING ARUS TRAFO 20kV BERBASIS LORAWAN</h2>
+                <p class="text-xs text-slate-400">Masukkan kredensial admin untuk mengakses panel kontrol realtime</p>
+            </div>
+
+            <!-- Form Login -->
+            <form id="login-form" onsubmit="handleLogin(event)" class="mt-6 space-y-4">
+                <div>
+                    <label class="block text-slate-300 text-[11px] font-bold uppercase tracking-wider mb-1.5">Username</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="username" required placeholder="Masukkan username" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition font-medium">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 text-[11px] font-bold uppercase tracking-wider mb-1.5">Sandi Akses</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-lock"></i>
+                        </span>
+                        <input type="password" id="password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-10 text-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition font-medium">
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300">
+                            <i id="password-toggle-icon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs pt-1">
+                    <label class="flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200">
+                        <input type="checkbox" id="remember-me" class="w-4 h-4 rounded border-slate-800 text-amber-500 bg-slate-950 focus:ring-amber-500 focus:ring-offset-slate-950">
+                        <span>Ingat saya di browser ini</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 py-3 rounded-xl text-sm font-bold transition duration-200 shadow-lg shadow-amber-500/10 active:scale-95 flex items-center justify-center gap-2 mt-2">
+                    <span>Masuk ke Dashboard</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+
+                <!-- Hint untuk Demo -->
+                <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 text-center text-[10px] text-slate-500">
+                    💡 Hint Pengujian: <code class="text-amber-400/80 font-bold">admin</code> / <code class="text-amber-400/80 font-bold">admin123</code>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD PANEL (Tersembunyi secara default sampai login sukses) -->
+    <div id="dashboard-content" class="hidden flex-grow flex flex-col justify-between">
+        <!-- PREMIUM HEADER -->
+        <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                <!-- Brand Logo and Title -->
+                <div class="flex items-center gap-4">
+                    <div class="bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 p-3 rounded-2xl shadow-xl shadow-amber-500/10">
+                        <i class="fa-solid fa-charging-station text-2xl animate-pulse"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-extrabold text-xl sm:text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                                MONITRAFO-20KV
+                            </h1>
+                            <span class="text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">LoRa P2P</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium">Sistem Pemantauan & Diagnosis Trafo Realtime</p>
+                    </div>
+                </div>
+                
+                <!-- Connection Status & Auth Actions -->
+                <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                    <div id="status-badge" class="flex items-center gap-2.5 bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl text-xs font-semibold shadow-inner">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span id="status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <span id="status-text" class="tracking-wide">Simulasi Lokal Aktif</span>
+                    </div>
+
+                    <button onclick="toggleModal('settings-modal')" class="bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700/60 hover:border-slate-600 transition duration-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-gears text-xs text-slate-400"></i>
+                        <span>Set DB</span>
+                    </button>
+
+                    <!-- Tombol Logout -->
+                    <button onclick="handleLogout()" class="bg-red-500/10 hover:bg-red-550 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:text-red-300 transition duration-200 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg">
+                        <i class="fa-solid fa-power-off"></i>
+                        <span>Keluar</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN DASHBOARD CONTENT -->
+        <main class="max-w-7xl mx-auto px-6 py-8 w-full flex-grow space-y-6">
+            
+            <!-- HEADER ACADEMIC BANNER & LORA TELEMETRY -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Academic Banner Info -->
+                <div class="lg:col-span-2 bg-gradient-to-r from-slate-900 via-indigo-950/20 to-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-center">
+                    <div class="absolute -right-24 -bottom-24 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl"></div>
+                    <div class="space-y-2 relative z-10">
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-3 bg-amber-400 rounded-full"></span>
+                            <span class="text-xs font-extrabold text-amber-400 uppercase tracking-widest">Perancangan Perangkat Monitoring Arus (I) untuk Evaluasi 
+Kesehatan Trafo Distribusi 20 kV Berbasis Teknologi 
+Komunikasi Lorawan </span>
+                        </div>
+                        <h2 class="text-md sm:text-lg md:text-xl font-extrabold text-white leading-snug">
+                            Dashboard Realtime Monitoring Arus Trafo 20kV
+                        </h2>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Evaluasi komprehensif kesehatan transformator distribusi melalui pemantauan simultan arus beban fasa dan tegangan fasa-netral. Sistem menghitung faktor ketidakseimbangan arus, estimasi arus netral, serta deviasi regulasi tegangan sesuai standar ketetapan PLN secara real-time.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- LoRaWAN Quality & Distance Card -->
+                <div class="glass-panel rounded-3xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+                    <div class="absolute -right-6 -bottom-6 text-indigo-500/5 text-7xl font-black select-none pointer-events-none transition-all group-hover:scale-110">915MHz</div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Tautan Nirkabel LoRa</span>
+                        <span id="signal-badge" class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold uppercase">Sinyal Baik</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 my-3">
+                        <!-- RSSI Value -->
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-semibold">Kekuatan Sinyal</span>
+                            <div class="flex items-baseline gap-1">
+                                <span id="lora-rssi" class="text-3xl font-extrabold text-white mono">-50</span>
+                                <span class="text-slate-400 font-bold text-xs">dBm</span>
+                            </div>
+                        </div>
+                        <!-- Estimated Distance -->
+                        <div class="space-y-1">
+                            <span class="text-[10px] text-slate-400 uppercase font-semibold">Estimasi Jarak</span>
+                            <div class="flex items-baseline gap-1">
+                                <span id="lora-distance" class="text-3xl font-extrabold text-indigo-400 mono">12.0</span>
+                                <span class="text-slate-400 font-bold text-xs">Meter</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-xs text-slate-400">
+                        <span>Signal Bars:</span>
+                        <div class="flex items-end gap-0.5 h-3.5">
+                            <div id="bar-1" class="w-1.5 h-1.5 bg-emerald-500 rounded-sm"></div>
+                            <div id="bar-2" class="w-1.5 h-2.5 bg-emerald-500 rounded-sm"></div>
+                            <div id="bar-3" class="w-1.5 h-3.5 bg-emerald-500 rounded-sm"></div>
+                            <div id="bar-4" class="w-1.5 h-4.5 bg-emerald-500 rounded-sm"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CURRENT & VOLTAGE GRID PANEL -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- CURRENT MONITORS (Ia, Ib, Ic - Presisi Tinggi 3 Desimal) -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-gauge-simple-high text-red-400"></i> Metrik Arus Beban RMS (Ampere)
+                        </h3>
+                        <span class="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded font-bold uppercase">Presisi mA</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Card Current R -->
+                        <div class="glass-panel rounded-2xl p-5 relative overflow-hidden group hover:border-red-500/30 transition-all duration-300">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-bl-full pointer-events-none transition-all duration-300 group-hover:bg-red-500/10"></div>
+                            <span class="text-[10px] font-bold text-red-400 uppercase tracking-wider">Fasa R (Merah)</span>
+                            <div class="mt-3 flex items-baseline gap-1.5">
+                                <span id="current-r" class="text-4xl font-extrabold text-white tracking-tight mono">0.000</span>
+                                <span class="text-slate-400 font-bold text-xs">A</span>
+                            </div>
+                            <!-- Bar capacity visual -->
+                            <div class="mt-4 w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                                <div id="bar-r" class="bg-red-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div class="mt-3 flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/50">
+                                <span>Arus Puncak:</span>
+                                <span id="peak-r" class="font-bold text-red-300 mono">0.000 A</span>
+                            </div>
+                        </div>
+
+                        <!-- Card Current S -->
+                        <div class="glass-panel rounded-2xl p-5 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-full pointer-events-none transition-all duration-300 group-hover:bg-amber-500/10"></div>
+                            <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Fasa S (Kuning)</span>
+                            <div class="mt-3 flex items-baseline gap-1.5">
+                                <span id="current-s" class="text-4xl font-extrabold text-white tracking-tight mono">0.000</span>
+                                <span class="text-slate-400 font-bold text-xs">A</span>
+                            </div>
+                            <!-- Bar capacity visual -->
+                            <div class="mt-4 w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                                <div id="bar-s" class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div class="mt-3 flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/50">
+                                <span>Arus Puncak:</span>
+                                <span id="peak-s" class="font-bold text-amber-300 mono">0.000 A</span>
+                            </div>
+                        </div>
+
+                        <!-- Card Current T -->
+                        <div class="glass-panel rounded-2xl p-5 relative overflow-hidden group hover:border-blue-500/30 transition-all duration-300">
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-bl-full pointer-events-none transition-all duration-300 group-hover:bg-blue-500/10"></div>
+                            <span class="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Fasa T (Biru)</span>
+                            <div class="mt-3 flex items-baseline gap-1.5">
+                                <span id="current-t" class="text-4xl font-extrabold text-white tracking-tight mono">0.000</span>
+                                <span class="text-slate-400 font-bold text-xs">A</span>
+                            </div>
+                            <!-- Bar capacity visual -->
+                            <div class="mt-4 w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                                <div id="bar-t" class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div class="mt-3 flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/50">
+                                <span>Arus Puncak:</span>
+                                <span id="peak-t" class="font-bold text-blue-300 mono">0.000 A</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VOLTAGE GAUGE MONITORS (Ua, Ub, Uc) -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-gauge text-indigo-400"></i> Tegangan Fasa-Netral & Gauge Meters
+                        </h3>
+                        <span class="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded font-bold uppercase">Standard 220V</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Card Voltage A (SVG Gauge) -->
+                        <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between items-center text-center relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+                            <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Tegangan Ua</span>
+                            
+                            <!-- SVG Radial Gauge -->
+                            <div class="relative w-28 h-20 my-2">
+                                <svg class="w-full h-full" viewBox="0 0 100 60">
+                                    <path d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+                                    <path id="gauge-fill-a" class="gauge-path" d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="126"/>
+                                    <line id="gauge-needle-a" class="gauge-pointer" x1="50" y1="50" x2="50" y2="15" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90, 50, 50)"/>
+                                </svg>
+                                <div class="absolute bottom-0 left-0 right-0 text-center">
+                                    <span id="voltage-a" class="text-xl font-extrabold text-white tracking-tight mono">0.0</span>
+                                    <span class="text-slate-450 font-bold text-[10px]">V</span>
+                                </div>
+                            </div>
+
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/60 mt-1">
+                                <span>Deviasi: <strong id="dev-v-a" class="text-slate-200">0.0%</strong></span>
+                                <span id="status-v-a" class="font-bold text-emerald-400">NORMAL</span>
+                            </div>
+                        </div>
+
+                        <!-- Card Voltage B (SVG Gauge) -->
+                        <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between items-center text-center relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+                            <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Tegangan Ub</span>
+                            
+                            <!-- SVG Radial Gauge -->
+                            <div class="relative w-28 h-20 my-2">
+                                <svg class="w-full h-full" viewBox="0 0 100 60">
+                                    <path d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+                                    <path id="gauge-fill-b" class="gauge-path" d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="126"/>
+                                    <line id="gauge-needle-b" class="gauge-pointer" x1="50" y1="50" x2="50" y2="15" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90, 50, 50)"/>
+                                </svg>
+                                <div class="absolute bottom-0 left-0 right-0 text-center">
+                                    <span id="voltage-b" class="text-xl font-extrabold text-white tracking-tight mono">0.0</span>
+                                    <span class="text-slate-450 font-bold text-[10px]">V</span>
+                                </div>
+                            </div>
+
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/60 mt-1">
+                                <span>Deviasi: <strong id="dev-v-b" class="text-slate-200">0.0%</strong></span>
+                                <span id="status-v-b" class="font-bold text-emerald-400">NORMAL</span>
+                            </div>
+                        </div>
+
+                        <!-- Card Voltage C (SVG Gauge) -->
+                        <div class="glass-panel rounded-2xl p-4 flex flex-col justify-between items-center text-center relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+                            <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">Tegangan Uc</span>
+                            
+                            <!-- SVG Radial Gauge -->
+                            <div class="relative w-28 h-20 my-2">
+                                <svg class="w-full h-full" viewBox="0 0 100 60">
+                                    <path d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+                                    <path id="gauge-fill-c" class="gauge-path" d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#10b981" stroke-width="7" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="126"/>
+                                    <line id="gauge-needle-c" class="gauge-pointer" x1="50" y1="50" x2="50" y2="15" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90, 50, 50)"/>
+                                </svg>
+                                <div class="absolute bottom-0 left-0 right-0 text-center">
+                                    <span id="voltage-c" class="text-xl font-extrabold text-white tracking-tight mono">0.0</span>
+                                    <span class="text-slate-450 font-bold text-[10px]">V</span>
+                            </div>
+                            </div>
+
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800/60 mt-1">
+                                <span>Deviasi: <strong id="dev-v-c" class="text-slate-200">0.0%</strong></span>
+                                <span id="status-v-c" class="font-bold text-emerald-400">NORMAL</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- DIAGNOSTIC BOARD, ANALYSIS & TELEMETRY TERMINAL -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- HEALTH BOARD -->
+                <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all duration-300">
+                    <div>
+                        <h3 class="text-xs font-extrabold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-heart-pulse text-rose-500"></i> Evaluasi Kesehatan Trafo
+                        </h3>
+                        
+                        <div class="flex flex-col items-center justify-center py-4 relative">
+                            <!-- Neon Glow Dial -->
+                            <div id="health-ring" class="w-32 h-32 rounded-full border-8 border-emerald-500/10 flex flex-col items-center justify-center transition-all duration-500 glow-emerald">
+                                <span id="health-value" class="text-2xl font-black text-emerald-400 tracking-wide transition-all duration-300">SEHAT</span>
+                                <span id="health-sub" class="text-[9px] text-emerald-300 font-bold uppercase mt-1 tracking-wider">Normal</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5 mt-4 pt-4 border-t border-slate-800 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">Rata-rata Arus ($I_{avg}$)</span>
+                            <span id="avg-current" class="font-bold text-white mono bg-slate-900/60 px-2 py-0.5 rounded border border-slate-800">0.000 A</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">Ketidakseimbangan ($I_{unb}$)</span>
+                            <span id="unbalance-factor" class="font-bold text-white mono bg-slate-900/60 px-2 py-0.5 rounded border border-slate-800">0.0%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">Rata-rata Tegangan ($U_{avg}$)</span>
+                            <span id="avg-voltage" class="font-bold text-white mono bg-slate-900/60 px-2 py-0.5 rounded border border-slate-800">0.0 V</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ANALYTICS: FORMULA & STANDARDS -->
+                <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/20 transition-all duration-300">
+                    <div>
+                        <h3 class="text-xs font-extrabold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-book-open text-indigo-400"></i> Standar Ketidakseimbangan PLN
+                        </h3>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+                            Berdasarkan regulasi PLN, ketidakseimbangan beban trafo maksimum adalah <strong>10% - 15%</strong>. Tingginya ketidakseimbangan memicu munculnya arus pada kawat netral ($I_N$) yang memicu panas berlebih pada tangki minyak trafo.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-950/60 rounded-xl p-4 border border-slate-800/80 space-y-2 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                        <span class="text-[10px] uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Diagnosis Otomatis Sistem
+                        </span>
+                        <p id="diagnosis-text" class="text-xs text-slate-300 leading-relaxed">
+                            Arus ketiga fasa terpantau seimbang dengan persentase unbalance aman di bawah standar batas PLN.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TERMINAL LOGS -->
+                <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between hover:border-blue-500/20 transition-all duration-300">
+                    <div class="w-full">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xs font-extrabold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                <i class="fa-solid fa-terminal text-blue-400"></i> Cyber Terminal Logger
+                            </h3>
+                            <span class="text-[9px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full font-bold uppercase mono">Baud 9600</span>
+                        </div>
+                        <!-- Terminal Console UI -->
+                        <div id="log-container" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-[10px] mono bg-slate-950 p-3 rounded-xl border border-slate-800/80 min-h-[140px]">
+                            <div class="text-slate-500">// System stand-by, awaiting first transmission packet...</div>
+                        </div>
+                    </div>
+                    <div class="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px] text-slate-500 mt-2">
+                        <span>Sinyal: <strong id="signal-rssi" class="text-slate-300">- dBm</strong></span>
+                        <button onclick="clearLogs()" class="text-slate-400 hover:text-white transition duration-200">Clear Terminal</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- LINE CHART GRID -->
+            <div class="glass-panel rounded-3xl p-6">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                    <div>
+                        <h3 class="text-xs font-extrabold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-amber-400"></i> Tren Real-time Parameter Arus & Tegangan Fasa
+                        </h3>
+                        <p class="text-xs text-slate-400 mt-1">Grafik multi-axis terintegrasi. Gunakan legenda di bawah untuk menyembunyikan parameter tertentu.</p>
+                    </div>
+                </div>
+                
+                <div class="w-full bg-slate-950/40 rounded-2xl p-4 border border-slate-900 overflow-hidden">
+                    <div id="realtime-chart" class="w-full h-80"></div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="bg-slate-950 py-4 border-t border-slate-900 text-center text-xs text-slate-500">
+            <p>&copy; 2026 Proyek Akhir: Evaluasi Kesehatan Trafo Distribusi 20 kV Berbasis LoRaWAN</p>
+        </footer>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-850 max-w-lg w-full rounded-3xl overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300" id="settings-card">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-slate-850 border-b border-slate-800/80 flex justify-between items-center">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-database text-amber-500"></i> Setup Firebase & Live Diagnosis
+                </h3>
+                <button onclick="toggleModal('settings-modal')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Modal Body -->
+            <div class="p-6 space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Mode Kerja</label>
+                    <select id="operation-mode" onchange="handleModeChange()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 focus:outline-none focus:border-amber-500 font-semibold">
+                        <option value="simulation">Simulasi Node Sensor (Otomatis)</option>
+                        <option value="firebase">Koneksi Live Firebase Database</option>
+                    </select>
+                </div>
+
+                <!-- Firebase Fields -->
+                <div id="firebase-fields" class="space-y-3 hidden border-t border-slate-800 pt-4">
+                    <span class="block text-[10px] font-extrabold text-amber-400 uppercase tracking-widest mb-2">Konfigurasi Firebase SDK</span>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-slate-400 mb-1">Web API Key</label>
+                            <input type="text" id="fb-apikey" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 mono">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">Project ID</label>
+                            <input type="text" id="fb-projectid" placeholder="monitoring-trafo-lora" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 mono">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">Database URL (RTDB Singapura)</label>
+                        <input type="text" id="fb-dburl" placeholder="https://monitoring-trafo-lora-default-rtdb.asia-southeast1.firebasedatabase.app" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 mono">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">Database Path</label>
+                        <input type="text" id="fb-dbpath" placeholder="trafo1/realtime" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-indigo-500 mono">
+                    </div>
+
+                    <!-- REALTIME DIAGNOSTIC BOX -->
+                    <div id="diagnostic-panel" class="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                        <span class="text-[10px] uppercase font-extrabold text-amber-400 tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-microchip"></i> Panel Diagnosis Koneksi Firebase
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <div id="diagnostic-dot" class="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
+                            <span id="diagnostic-status" class="text-[11px] font-semibold text-slate-400">Siap Menguji Koneksi...</span>
+                        </div>
+                        <p id="diagnostic-error-msg" class="text-[10px] text-rose-400 mono leading-relaxed bg-rose-500/10 border border-rose-500/20 p-2 rounded-md hidden"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-slate-850 border-t border-slate-800 flex justify-end gap-2">
+                <button onclick="toggleModal('settings-modal')" class="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 transition duration-200">Batal</button>
+                <button onclick="saveSettings()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 px-4 py-2 rounded-xl text-xs font-semibold text-slate-950 transition duration-200 shadow-lg shadow-amber-500/10">Simpan & Uji Koneksi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-indigo-600 border border-indigo-500 text-white px-5 py-3 rounded-2xl shadow-2xl z-50 text-xs flex items-center gap-3 translate-y-20 opacity-0 transition-all duration-300">
+        <i class="fa-solid fa-bell text-sm"></i>
+        <span id="toast-message">Menyimpan Konfigurasi...</span>
+    </div>
+
+    <!-- MAIN APP JAVASCRIPT & REALTIME ENGINE -->
+    <script type="module">
+        import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // CONFIG UTAMA
+        let appConfig = {
+            mode: 'simulation',
+            firebase: { apiKey: '', projectId: '', databaseURL: '', dbPath: 'trafo1/realtime' }
+        };
+
+        let currentData = { r: 0, s: 0, t: 0, va: 0, vb: 0, vc: 0, rssi: -50 };
+        let peakData = { r: 0, s: 0, t: 0 };
+        let chartData = { categories: [], r: [], s: [], t: [], va: [], vb: [], vc: [] };
+        const maxDataPoints = 15;
+        let simulationInterval = null;
+        let firebaseUnsubscribe = null;
+        let chartInstance = null;
+
+        // AUTENTIKASI AKSES (Admin: admin / admin123)
+        window.addEventListener('DOMContentLoaded', () => {
+            checkUserSession();
+            loadSavedConfig();
+            initChart();
+        });
+
+        // FUNGSI CEK STATUS LOGIN SEBELUMNYA
+        function checkUserSession() {
+            const loggedIn = localStorage.getItem('monitrafo_logged_in');
+            if (loggedIn === 'true') {
+                showDashboard();
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        // TAMPILKAN PANEL LOGIN
+        function showLoginScreen() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('dashboard-content').classList.add('hidden');
+            
+            // Stop active operations to save memory
+            if (simulationInterval) clearInterval(simulationInterval);
+            if (firebaseUnsubscribe) {
+                firebaseUnsubscribe();
+                firebaseUnsubscribe = null;
+            }
+        }
+
+        // TAMPILKAN PANEL DASHBOARD
+        function showDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+            startApp();
+        }
+
+        // PROSES HANDLE SUBMIT LOGIN
+        window.handleLogin = function(event) {
+            event.preventDefault();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+
+            if (user === 'admin' && pass === 'admin123') {
+                if (rememberMe) {
+                    localStorage.setItem('monitrafo_logged_in', 'true');
+                } else {
+                    sessionStorage.setItem('monitrafo_logged_in', 'true');
+                    // Backup untuk checkUserSession
+                    localStorage.setItem('monitrafo_logged_in', 'true');
+                }
+                showToast("Selamat Datang, Admin!");
+                showDashboard();
+                
+                // Clear input form
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            } else {
+                showToast("Username / Sandi Akses Salah!");
+                // Efek getar form eror
+                const card = document.getElementById('settings-card');
+                card.classList.add('animate-bounce');
+                setTimeout(() => card.classList.remove('animate-bounce'), 1000);
+            }
+        }
+
+        // PROSES LOGOUT
+        window.handleLogout = function() {
+            localStorage.removeItem('monitrafo_logged_in');
+            sessionStorage.removeItem('monitrafo_logged_in');
+            showToast("Berhasil Keluar dari Sistem.");
+            showLoginScreen();
+        }
+
+        // INTIP PASSWORD
+        window.togglePasswordVisibility = function() {
+            const passInput = document.getElementById('password');
+            const icon = document.getElementById('password-toggle-icon');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                passInput.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function initChart() {
+            const now = new Date();
+            for(let i = maxDataPoints - 1; i >= 0; i--) {
+                const tempTime = new Date(now.getTime() - (i * 3000));
+                chartData.categories.push(formatTime(tempTime));
+                chartData.r.push(0);
+                chartData.s.push(0);
+                chartData.t.push(0);
+                chartData.va.push(0);
+                chartData.vb.push(0);
+                chartData.vc.push(0);
+            }
+
+            const options = {
+                chart: {
+                    type: 'line',
+                    height: '100%',
+                    id: 'realtime-trafo-chart',
+                    background: 'transparent',
+                    foreColor: '#94a3b8',
+                    animations: { enabled: true, easing: 'linear', dynamicAnimation: { speed: 800 } },
+                    toolbar: { show: false }
+                },
+                stroke: { curve: 'smooth', width: [3, 3, 3, 2, 2, 2], dashArray: [0, 0, 0, 5, 5, 5] },
+                colors: [
+                    '#ef4444', '#f59e0b', '#3b82f6', // Arus: Red, Amber, Blue
+                    '#fca5a5', '#fde047', '#93c5fd'  // Tegangan: Light Red, Light Yellow, Light Blue
+                ],
+                series: [
+                    { name: 'Arus R (A)', data: chartData.r },
+                    { name: 'Arus S (A)', data: chartData.s },
+                    { name: 'Arus T (A)', data: chartData.t },
+                    { name: 'Tegangan R (V)', data: chartData.va },
+                    { name: 'Tegangan S (V)', data: chartData.vb },
+                    { name: 'Tegangan T (V)', data: chartData.vc }
+                ],
+                xaxis: {
+                    categories: chartData.categories,
+                    labels: { show: true, rotate: -45, style: { fontSize: '9px', fontFamily: 'JetBrains Mono, monospace' } }
+                },
+                yaxis: [
+                    {
+                        title: { text: "Arus (Ampere)", style: { color: '#f59e0b' } },
+                        min: 0,
+                        max: function(max) { return max > 10 ? Math.ceil(max * 1.1) : 10 },
+                        labels: { formatter: function(val) { return val.toFixed(3) + " A"; } }
+                    },
+                    {
+                        opposite: true,
+                        title: { text: "Tegangan (Volt)", style: { color: '#6366f1' } },
+                        min: 150,
+                        max: 270,
+                        labels: { formatter: function(val) { return val.toFixed(0) + " V"; } }
+                    }
+                ],
+                grid: { borderColor: '#334155/10', strokeDashArray: 4 },
+                tooltip: { theme: 'dark' }
+            };
+
+            chartInstance = new ApexCharts(document.querySelector("#realtime-chart"), options);
+            chartInstance.render();
+        }
+
+        function formatTime(dateObj) {
+            return dateObj.toTimeString().split(' ')[0];
+        }
+
+        function startApp() {
+            if (simulationInterval) clearInterval(simulationInterval);
+            if (firebaseUnsubscribe) {
+                firebaseUnsubscribe();
+                firebaseUnsubscribe = null;
+            }
+
+            const statusBadge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            const statusPing = document.getElementById('status-ping');
+            const statusDot = document.getElementById('status-dot');
+
+            if (appConfig.mode === 'simulation') {
+                statusBadge.className = "flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl text-xs font-semibold shadow-inner";
+                statusText.innerText = "Simulasi Lokal Aktif";
+                statusPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+                addLog("[Engine] Memulai Simulasi Arus & Tegangan Trafo...", "system");
+                
+                runSimulation();
+                simulationInterval = setInterval(runSimulation, 2000);
+            } else {
+                statusBadge.className = "flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-4 py-2 rounded-xl text-xs font-semibold shadow-inner";
+                statusText.innerText = "Menghubungkan ke Firebase...";
+                statusPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
+                statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
+                addLog("[Engine] Menyambungkan ke Firebase database di cloud...", "system");
+
+                connectToFirebase();
+            }
+        }
+
+        function runSimulation() {
+            const baseR = 0.5 + (Math.sin(Date.now() / 20000) * 0.2);
+            const baseS = 0.3 + (Math.cos(Date.now() / 15000) * 0.1);
+            const baseT = 0.4 + (Math.sin(Date.now() / 30000) * 0.15);
+
+            const r = parseFloat((baseR + (Math.random() * 0.05 - 0.025)).toFixed(3));
+            const s = parseFloat((baseS + (Math.random() * 0.04 - 0.02)).toFixed(3));
+            const t = parseFloat((baseT + (Math.random() * 0.06 - 0.03)).toFixed(3));
+
+            const va = parseFloat((220 - (r * 0.1) + (Math.random() * 2 - 1)).toFixed(1));
+            const vb = parseFloat((221 - (s * 0.1) + (Math.random() * 2 - 1)).toFixed(1));
+            const vc = parseFloat((219 - (t * 0.1) + (Math.random() * 2 - 1)).toFixed(1));
+
+            const simulatedRssi = Math.floor(-45 + (Math.sin(Date.now() / 10000) * 15) + (Math.random() * 4 - 2));
+
+            updateMetrics(r, s, t, va, vb, vc, simulatedRssi);
+        }
+
+        function connectToFirebase() {
+            const f = appConfig.firebase;
+            const diagnosticDot = document.getElementById('diagnostic-dot');
+            const diagnosticStatus = document.getElementById('diagnostic-status');
+            const diagnosticError = document.getElementById('diagnostic-error-msg');
+
+            if (!f.apiKey || !f.databaseURL || !f.projectId) {
+                showToast("Konfigurasi Firebase belum lengkap!");
+                appConfig.mode = 'simulation';
+                startApp();
+                return;
+            }
+
+            diagnosticDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+            diagnosticStatus.innerText = "Sedang Menguji Koneksi...";
+            diagnosticError.classList.add('hidden');
+
+            try {
+                const existingApps = getApps();
+                if (existingApps.length > 0) {
+                    for (let appInstance of existingApps) {
+                        deleteApp(appInstance);
+                    }
+                }
+
+                const firebaseConfig = {
+                    apiKey: f.apiKey,
+                    authDomain: `${f.projectId}.firebaseapp.com`,
+                    databaseURL: f.databaseURL,
+                    projectId: f.projectId
+                };
+
+                const app = initializeApp(firebaseConfig);
+                const db = getDatabase(app);
+                const databaseRef = ref(db, f.dbPath);
+
+                get(databaseRef).then(() => {
+                    diagnosticDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+                    diagnosticStatus.className = "text-[11px] font-bold text-emerald-400";
+                    diagnosticStatus.innerText = "Firebase Terkoneksi Sukses!";
+                    
+                    const statusBadge = document.getElementById('status-badge');
+                    const statusText = document.getElementById('status-text');
+                    const statusPing = document.getElementById('status-ping');
+                    const statusDot = document.getElementById('status-dot');
+
+                    statusBadge.className = "flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl text-xs font-semibold shadow-inner";
+                    statusText.innerText = "Firebase Terhubung";
+                    statusPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                    statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+                    addLog("[Firebase] Sukses terhubung ke server cloud secara realtime.", "system");
+
+                    firebaseUnsubscribe = onValue(databaseRef, (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            const r = parseFloat(data.r || 0);
+                            const s = parseFloat(data.s || 0);
+                            const t = parseFloat(data.t || 0);
+                            const va = parseFloat(data.va || 220);
+                            const vb = parseFloat(data.vb || 220);
+                            const vc = parseFloat(data.vc || 220);
+                            const rssi = parseInt(data.rssi || -50);
+                            updateMetrics(r, s, t, va, vb, vc, rssi);
+                        }
+                    });
+
+                }).catch((err) => {
+                    diagnosticDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                    diagnosticStatus.className = "text-[11px] font-bold text-rose-400";
+                    diagnosticStatus.innerText = "Koneksi Gagal!";
+                    diagnosticError.classList.remove('hidden');
+                    
+                    let friendlyError = err.message;
+                    if (friendlyError.includes("permission_denied")) {
+                        friendlyError = "Eror: Akses Ditolak! Rules database di Firebase Console masih terkunci.";
+                    }
+                    diagnosticError.innerText = friendlyError;
+                    
+                    const statusBadge = document.getElementById('status-badge');
+                    statusBadge.className = "flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-2 rounded-xl text-xs font-semibold shadow-inner";
+                    document.getElementById('status-text').innerText = "Firebase Eror!";
+                    addLog(`[Koneksi Gagal] ${err.message}`, "error");
+                });
+
+            } catch (err) {
+                diagnosticDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+                diagnosticError.classList.remove('hidden');
+                diagnosticError.innerText = err.message;
+            }
+        }
+
+        function calculateEstimatedDistance(rssi) {
+            if (rssi >= 0 || !rssi) return 0;
+            const A = -42;
+            const n = 3.0;
+            const exponent = (A - rssi) / (10 * n);
+            const distance = Math.pow(10, exponent);
+            return distance;
+        }
+
+        function updateSvgGauge(phase, value) {
+            const fillPath = document.getElementById(`gauge-fill-${phase}`);
+            const needle = document.getElementById(`gauge-needle-${phase}`);
+            const statusText = document.getElementById(`status-v-${phase}`);
+            const textElem = document.getElementById(`voltage-${phase}`);
+            
+            let clampedVal = Math.max(0, Math.min(value, 300));
+            const angle = ((clampedVal / 300) * 180) - 90;
+            
+            needle.setAttribute("transform", `rotate(${angle}, 50, 50)`);
+            
+            const offset = 126 - ((clampedVal / 300) * 126);
+            fillPath.setAttribute("stroke-dashoffset", offset);
+            
+            textElem.innerText = value.toFixed(1);
+
+            if (value < 198) {
+                fillPath.setAttribute("stroke", "#f43f5e");
+                statusText.className = "font-bold text-rose-400";
+                statusText.innerText = "TEG. DROP";
+            } else if (value > 242) {
+                fillPath.setAttribute("stroke", "#f59e0b");
+                statusText.className = "font-bold text-amber-500 animate-pulse";
+                statusText.innerText = "OVERVOLT";
+            } else {
+                fillPath.setAttribute("stroke", "#10b981");
+                statusText.className = "font-bold text-emerald-400";
+                statusText.innerText = "NORMAL";
+            }
+        }
+
+        function updateMetrics(r, s, t, va, vb, vc, rssi) {
+            currentData = { r, s, t, va, vb, vc, rssi };
+
+            if (r > peakData.r) { peakData.r = r; document.getElementById('peak-r').innerText = r.toFixed(3) + " A"; }
+            if (s > peakData.s) { peakData.s = s; document.getElementById('peak-s').innerText = s.toFixed(3) + " A"; }
+            if (t > peakData.t) { peakData.t = t; document.getElementById('peak-t').innerText = t.toFixed(3) + " A"; }
+
+            document.getElementById('current-r').innerText = r.toFixed(3);
+            document.getElementById('current-s').innerText = s.toFixed(3);
+            document.getElementById('current-t').innerText = t.toFixed(3);
+            
+            updateSvgGauge('a', va);
+            updateSvgGauge('b', vb);
+            updateSvgGauge('c', vc);
+
+            document.getElementById('lora-rssi').innerText = rssi;
+            const distance = calculateEstimatedDistance(rssi);
+            
+            if (distance < 1000) {
+                document.getElementById('lora-distance').innerText = distance.toFixed(1);
+                document.getElementById('lora-distance').nextElementSibling.innerText = "Meter";
+            } else {
+                document.getElementById('lora-distance').innerText = (distance / 1000).toFixed(2);
+                document.getElementById('lora-distance').nextElementSibling.innerText = "Km";
+            }
+
+            const badge = document.getElementById('signal-badge');
+            const b1 = document.getElementById('bar-1');
+            const b2 = document.getElementById('bar-2');
+            const b3 = document.getElementById('bar-3');
+            const b4 = document.getElementById('bar-4');
+
+            if (rssi >= -70) {
+                badge.className = "text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold uppercase";
+                badge.innerText = "Sinyal Kuat";
+                b1.className = "w-1.5 h-1.5 bg-emerald-500 rounded-sm";
+                b2.className = "w-1.5 h-2.5 bg-emerald-500 rounded-sm";
+                b3.className = "w-1.5 h-3.5 bg-emerald-500 rounded-sm";
+                b4.className = "w-1.5 h-4.5 bg-emerald-500 rounded-sm";
+            } else if (rssi >= -95) {
+                badge.className = "text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-bold uppercase";
+                badge.innerText = "Sinyal Sedang";
+                b1.className = "w-1.5 h-1.5 bg-amber-500 rounded-sm";
+                b2.className = "w-1.5 h-2.5 bg-amber-500 rounded-sm";
+                b3.className = "w-1.5 h-3.5 bg-amber-500 rounded-sm";
+                b4.className = "w-1.5 h-4.5 bg-slate-700 rounded-sm";
+            } else {
+                badge.className = "text-[9px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-0.5 rounded-full font-bold uppercase animate-pulse";
+                badge.innerText = "Sinyal Lemah";
+                b1.className = "w-1.5 h-1.5 bg-rose-500 rounded-sm";
+                b2.className = "w-1.5 h-2.5 bg-slate-700 rounded-sm";
+                b3.className = "w-1.5 h-3.5 bg-slate-700 rounded-sm";
+                b4.className = "w-1.5 h-4.5 bg-slate-700 rounded-sm";
+            }
+
+            const maxCap = 160;
+            document.getElementById('bar-r').style.width = Math.min((r / maxCap) * 100, 100) + "%";
+            document.getElementById('bar-s').style.width = Math.min((s / maxCap) * 100, 100) + "%";
+            document.getElementById('bar-t').style.width = Math.min((t / maxCap) * 100, 100) + "%";
+
+            calcVoltageDeviation(va, 'dev-v-a');
+            calcVoltageDeviation(vb, 'dev-v-b');
+            calcVoltageDeviation(vc, 'dev-v-c');
+
+            const avgCurrent = (r + s + t) / 3;
+            document.getElementById('avg-current').innerText = avgCurrent.toFixed(3) + " A";
+
+            const avgVoltage = (va + vb + vc) / 3;
+            document.getElementById('avg-voltage').innerText = avgVoltage.toFixed(1) + " V";
+
+            let unbalanceFactor = 0;
+            if (avgCurrent > 0) {
+                const devR = Math.abs(r - avgCurrent);
+                const devS = Math.abs(s - avgCurrent);
+                const devT = Math.abs(t - avgCurrent);
+                const maxDev = Math.max(devR, devS, devT);
+                unbalanceFactor = (maxDev / avgCurrent) * 100;
+            }
+            document.getElementById('unbalance-factor').innerText = unbalanceFactor.toFixed(1) + "%";
+
+            document.getElementById('signal-rssi').innerText = rssi + " dBm";
+
+            evaluateTransformerHealth(r, s, t, unbalanceFactor, va, vb, vc);
+
+            addLog(`Ia: <span class='text-red-400'>${r.toFixed(3)}A</span> | Ib: <span class='text-amber-400'>${s.toFixed(3)}A</span> | Ic: <span class='text-blue-400'>${t.toFixed(3)}A</span> || Ua: ${va.toFixed(1)}V | Ub: ${vb.toFixed(1)}V | Uc: ${vc.toFixed(1)}V | RSSI: ${rssi} dBm`, "telemetry");
+
+            const timeStr = formatTime(new Date());
+            chartData.categories.push(timeStr);
+            chartData.r.push(r);
+            chartData.s.push(s);
+            chartData.t.push(t);
+            chartData.va.push(va);
+            chartData.vb.push(vb);
+            chartData.vc.push(vc);
+
+            if (chartData.categories.length > maxDataPoints) {
+                chartData.categories.shift();
+                chartData.r.shift();
+                chartData.s.shift();
+                chartData.t.shift();
+                chartData.va.shift();
+                chartData.vb.shift();
+                chartData.vc.shift();
+            }
+
+            if (chartInstance) {
+                chartInstance.updateSeries([
+                    { name: 'Arus R (A)', data: chartData.r },
+                    { name: 'Arus S (A)', data: chartData.s },
+                    { name: 'Arus T (A)', data: chartData.t },
+                    { name: 'Tegangan R (V)', data: chartData.va },
+                    { name: 'Tegangan S (V)', data: chartData.vb },
+                    { name: 'Tegangan T (V)', data: chartData.vc }
+                ]);
+            }
+        }
+
+        function calcVoltageDeviation(val, devId) {
+            const devElem = document.getElementById(devId);
+            const devPercent = ((val - 220) / 220) * 100;
+            devElem.innerText = (devPercent >= 0 ? "+" : "") + devPercent.toFixed(1) + "%";
+        }
+
+        function evaluateTransformerHealth(r, s, t, unbalance, va, vb, vc) {
+            const healthRing = document.getElementById('health-ring');
+            const healthVal = document.getElementById('health-value');
+            const healthSub = document.getElementById('health-sub');
+            const diagnosisText = document.getElementById('diagnosis-text');
+
+            const isOverCurrent = r > 130 || s > 130 || t > 130;
+            const isVoltageCritical = va < 195 || vb < 195 || vc < 195 || va > 245 || vb > 245 || vc > 245;
+
+            if (isOverCurrent || unbalance > 20 || isVoltageCritical) {
+                healthRing.className = "w-32 h-32 rounded-full border-8 border-rose-500/20 flex flex-col items-center justify-center animate-pulse glow-rose";
+                healthVal.className = "text-2xl font-black text-rose-500 tracking-wide";
+                healthVal.innerText = "BAHAYA";
+                healthSub.className = "text-[9px] text-rose-400 font-bold uppercase mt-1 tracking-wider";
+                healthSub.innerText = "Anomali Kritis";
+
+                if (isVoltageCritical) {
+                    diagnosisText.innerHTML = `Terjadi lonjakan/drop tegangan fasa kritis di luar toleransi standar PLN (&plusmn;10%). Sangat berisiko merusak belitan magnetik internal trafo!`;
+                } else if (unbalance > 20) {
+                    diagnosisText.innerHTML = `Ketidakseimbangan beban sangat tinggi (<strong class="text-rose-400">${unbalance.toFixed(1)}%</strong>). Memicu timbulnya arus balik pada kawat netral yang memanaskan trafo.`;
+                } else {
+                    diagnosisText.innerHTML = `Beban arus fasa trafo melampaui kapasitas aman nominal (>130A). Segera kurangi beban jaringan!`;
+                }
+            } else if (unbalance > 10 || va < 198 || vb < 198 || vc < 198) {
+                healthRing.className = "w-32 h-32 rounded-full border-8 border-amber-500/20 flex flex-col items-center justify-center glow-amber";
+                healthVal.className = "text-2xl font-black text-amber-500 tracking-wide";
+                healthVal.innerText = "SIAGA";
+                healthSub.className = "text-[9px] text-amber-300 font-bold uppercase mt-1 tracking-wider";
+                healthSub.innerText = "Butuh Atensi";
+
+                if (va < 198 || vb < 198 || vc < 198) {
+                    diagnosisText.innerHTML = `Sinyal tegangan mengalami drop di bawah batas aman regulasi PLN (198V) akibat pembebanan fasa tidak merata.`;
+                } else {
+                    diagnosisText.innerHTML = `Ketidakseimbangan beban sedang (<strong class="text-amber-400">${unbalance.toFixed(1)}%</strong>). Jadwalkan proses penyeimbangan beban fasa pelanggan.`;
+                }
+            } else {
+                healthRing.className = "w-32 h-32 rounded-full border-8 border-emerald-500/20 flex flex-col items-center justify-center glow-emerald";
+                healthVal.className = "text-2xl font-black text-emerald-400 tracking-wide";
+                healthVal.innerText = "SEHAT";
+                healthSub.className = "text-[9px] text-emerald-300 font-bold uppercase mt-1 tracking-wider";
+                healthSub.innerText = "Trafo Normal";
+                diagnosisText.innerHTML = `Beban fasa stabil dan tegangan stabil di atas 198V dengan deviasi beban minimal (<strong class="text-emerald-400">${unbalance.toFixed(1)}%</strong>). Kerugian daya (losses) berada di level minimal.`;
+            }
+        }
+
+        function addLog(message, type = "telemetry") {
+            const container = document.getElementById('log-container');
+            const timeStr = new Date().toLocaleTimeString();
+            const logElem = document.createElement('div');
+            
+            let colorClass = "text-slate-300";
+            if (type === "system") colorClass = "text-indigo-400 font-semibold";
+            if (type === "error") colorClass = "text-rose-400 font-semibold";
+            
+            logElem.className = `${colorClass} pb-1 border-b border-slate-900`;
+            logElem.innerHTML = `<span class="text-slate-600">[${timeStr}]</span> ${message}`;
+            
+            if (container.children.length === 1 && container.children[0].innerText.includes("System stand-by")) {
+                container.innerHTML = "";
+            }
+
+            container.appendChild(logElem);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.clearLogs = function() {
+            document.getElementById('log-container').innerHTML = `<div class="text-slate-500">// Terminal log cleared. awaiting packets...</div>`;
+        }
+
+        function loadSavedConfig() {
+            const saved = localStorage.getItem('monitrafo_config');
+            if (saved) {
+                try {
+                    appConfig = JSON.parse(saved);
+                    document.getElementById('operation-mode').value = appConfig.mode;
+                    document.getElementById('fb-apikey').value = appConfig.firebase.apiKey || '';
+                    document.getElementById('fb-projectid').value = appConfig.firebase.projectId || '';
+                    document.getElementById('fb-dburl').value = appConfig.firebase.databaseURL || '';
+                    document.getElementById('fb-dbpath').value = appConfig.firebase.dbPath || 'trafo1/realtime';
+                    handleModeChange();
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        window.saveSettings = function() {
+            const mode = document.getElementById('operation-mode').value;
+            const apiKey = document.getElementById('fb-apikey').value.trim();
+            const projectId = document.getElementById('fb-projectid').value.trim();
+            const databaseURL = document.getElementById('fb-dburl').value.trim();
+            const dbPath = document.getElementById('fb-dbpath').value.trim();
+
+            appConfig = { mode: mode, firebase: { apiKey, projectId, databaseURL, dbPath } };
+            localStorage.setItem('monitrafo_config', JSON.stringify(appConfig));
+            showToast("Konfigurasi tersimpan. Menginisialisasi koneksi...");
+            startApp();
+        }
+
+        window.handleModeChange = function() {
+            const mode = document.getElementById('operation-mode').value;
+            const fields = document.getElementById('firebase-fields');
+            if (mode === 'firebase') fields.classList.remove('hidden');
+            else fields.classList.add('hidden');
+        }
+
+        window.toggleModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            const card = document.getElementById('settings-card');
+            if (modal.classList.contains('opacity-0')) {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            } else {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                card.classList.add('scale-95');
+                card.classList.remove('scale-100');
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 4000);
+        }
+    </script>
+</body>
+</html>
